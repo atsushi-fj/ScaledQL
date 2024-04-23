@@ -1,0 +1,23 @@
+# Online Training
+load_checkpoint: True
+seed: 42
+n_games: 100
+make_video: False
+gamma: 0.99
+epsilon: 1.0
+lr: 0.00025
+eps: 1.e-6
+mem_size: 100000
+eps_min: 0.1
+batch_size: 32
+replace: 10000
+eps_dec: 1.e-5
+gpu: "0"
+chkpt_dir: "models/"
+algo: "DQNAgent"
+env_name: "BreakoutNoFrameskip-v4"
+video_dir: "video"
+log_dir: "log"
+save_memory: False
+total_save_data: 100000
+memory_dir: "memory"
