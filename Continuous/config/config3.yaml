@@ -1,5 +1,6 @@
-# offline training
+# offline test
 env_id: "CarRacing-v2"
+load_model_id: 15
 gamma: 0.99
 tau: 0.005
 auto_alpha: False
@@ -16,9 +17,8 @@ memory_size: 20000
 n_episode: 3000
 start_steps: 1000
 log_dir: "log"
-experiment_name: "offline"
-load_checkpoint: False
-save_memory: True
+experiment_name: "offline_test"
+save_memory: False
 memory_dir: "memory_3"
 epochs: 2000
 eval_interval: 5

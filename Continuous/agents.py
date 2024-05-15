@@ -163,7 +163,6 @@ class ScaledQLAgent(Agent):
         self.cql_weight = cql_weight
         self.target_action_gap = target_action_gap
         self.temp = temparature
-        self.gamma = torch.FloatTensor([self.gamma]).to(self.device)
         
         self.actor_net = ScaledActorNet(input_dims=self.input_dims, output_dims=self.action_dim, 
                                         name="actor", chkpt_dir=self.chkpt_dir,
@@ -188,8 +187,7 @@ class ScaledQLAgent(Agent):
         convert_network_grad_to_false(self.critic2_net_target)
         
         self.actor_optim = optim.Adam(self.actor_net.parameters(), self.lr_actor)
-        self.critic1_optim = optim.Adam(self.critic1_net.parameters(), self.lr_critic)
-        self.critic2_optim = optim.Adam(self.critic2_net.parameters(), self.lr_critic)
+        self.critic_optim = optim.Adam(list(self.critic1_net.parameters()) + list(self.critic2_net.parameters()), self.lr_critic)
 
         self.target_entropy = -torch.prod(torch.Tensor(self.action_dim).to(self.device)).item()
         
@@ -207,15 +205,15 @@ class ScaledQLAgent(Agent):
         action, log_pi, _ = self.actor_net.sample(state_batch)
         q1_values = self.critic1_net(state_batch, action)
         q2_values = self.critic2_net(state_batch, action)
-        q_values = torch.min(q1_values, q2_values).cpu()
-        actor_loss = ((alpha * log_pi.cpu()) - q_values).mean()
+        q_values = torch.min(q1_values, q2_values)
+        actor_loss = ((alpha * log_pi) - q_values).mean()
         return actor_loss, log_pi
         
     def _compute_policy_values(self, obs_pi, obs_q):
         actions_pred, log_pis, _ = self.actor_net.sample(obs_pi)
         qs1 = self.critic1_net(obs_q, actions_pred)
         qs2 = self.critic2_net(obs_q, actions_pred)
-        return qs1 - log_pis.detach(), qs2 - log_pis.detach()
+        return qs1 - log_pis, qs2 - log_pis
     
     def _compute_random_values(self, obs, actions, critic):
         random_values = critic(obs, actions)
@@ -261,7 +259,6 @@ class ScaledQLAgent(Agent):
         critic2_loss = F.mse_loss(q2_values, next_q_values)
         
         # CQL   
-        # * 10
         random_actions = torch.FloatTensor(q1_values.shape[0] * 1, actions.shape[-1]).uniform_(-1, 1).to(self.device)
         num_repeat = int(random_actions.shape[0] / states.shape[0])
         temp_states = states.unsqueeze(1).repeat(1, num_repeat, 1, 1, 1).view(states.shape[0] * num_repeat, states.shape[-3], states.shape[-2], states.shape[-1])
@@ -303,16 +300,13 @@ class ScaledQLAgent(Agent):
         
         total_c1_loss = critic1_loss + cql1_scaled_loss
         total_c2_loss = critic2_loss + cql2_scaled_loss
+        
+        total_loss = total_c1_loss + total_c2_loss
             
         # Update critics
-        # critic 1
-        self.critic1_optim.zero_grad()
-        total_c1_loss.backward(retain_graph=True)
-        self.critic1_optim.step()
-        # critic 2
-        self.critic2_optim.zero_grad()
-        total_c2_loss.backward()
-        self.critic2_optim.step()
+        self.critic_optim.zero_grad()
+        total_loss.backward()
+        self.critic_optim.step()
 
         soft_update(self.critic1_net_target, self.critic1_net, self.tau)
         soft_update(self.critic2_net_target, self.critic2_net, self.tau)

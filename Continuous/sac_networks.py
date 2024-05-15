@@ -99,8 +99,8 @@ class ActorNet(nn.Module):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        alpha = self.alpha_head(x) + 1.0
-        beta = self.beta_head(x) + 1.0
+        alpha = F.softplus(self.alpha_head(x)) + 1.0
+        beta = F.softplus(self.beta_head(x)) + 1.0
         self.temp_step += 1
         return alpha, beta
 
@@ -108,12 +108,12 @@ class ActorNet(nn.Module):
         alpha, beta = self.forward(state)
         dist = Beta(alpha, beta)
         x_t = dist.rsample()
-        action = x_t * torch.tensor([2., 1., 1.], device=self.device) + torch.tensor([-1., 0., 0.], device=self.device)
+        action = x_t * torch.tensor([2., 1., 1.], device=self.device).repeat(x_t.shape[0], 1) + torch.tensor([-1., 0., 0.], device=self.device).repeat(x_t.shape[0], 1)
         log_prob = dist.log_prob(x_t)
         log_prob -= torch.log((1 - action.pow(2)) + self.epsilon)
         log_prob = log_prob.sum(1, keepdim=True)
         action_eval = alpha / (alpha + beta)
-        action_eval = action_eval * torch.tensor([2., 1., 1.], device=self.device) + torch.tensor([-1., 0., 0.], device=self.device)
+        action_eval = action_eval * torch.tensor([2., 1., 1.], device=self.device).repeat(x_t.shape[0], 1) + torch.tensor([-1., 0., 0.], device=self.device).repeat(x_t.shape[0], 1)
         return action, log_prob, action_eval
     
     def save_checkpoint(self):

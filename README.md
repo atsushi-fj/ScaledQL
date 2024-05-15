@@ -1,6 +1,10 @@
 # ScaledQL
 Code for Scaled Q-Learning
 
+## Performance
+<div align=center><img src="plots/eval_carracing.png" width="50%"/></div>
+<div align=center><img src="plots/eval_offline_carracing.png" width="50%"/></div>
+
 ## Reference
 ["Offline Q-Learning on Diverse Multi-Task Data Both Scales And Generalizes"]
 (https://arxiv.org/abs/2211.15144)

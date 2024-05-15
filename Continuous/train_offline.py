@@ -93,6 +93,5 @@ if __name__ == "__main__":
                 
             if avg_reward >= last_reward:
                 agent.save_models(epoch)
-                
-            last_reward = avg_reward
+                last_reward = avg_reward
                 

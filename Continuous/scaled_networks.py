@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Beta
 import os
 
-from modified_resnet import ModifiedResNet34
+from modified_resnet import ModifiedResNet34,CustomCNN
 from utils import hidden_init
 
 
@@ -17,7 +17,8 @@ class ScaledCriticNet(nn.Module):
         
         self.name = name
         self.chekcpoint_dir = chkpt_dir
-        self.encoder = ModifiedResNet34(n_norm_groups, input_dims)
+        # self.encoder = ModifiedResNet34(n_norm_groups, input_dims)
+        self.encoder = CustomCNN(input_dims)
         fc_input_dims = int(np.prod(self.encoder.encoder_output_dims))
         self.fc1 = nn.Linear(fc_input_dims + action_dim, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -73,7 +74,8 @@ class ScaledActorNet(nn.Module):
         self.name = name
         self.chekcpoint_dir = chkpt_dir
         self.epsilon = epsilon
-        self.encoder = ModifiedResNet34(n_norm_groups, input_dims)
+        # self.encoder = ModifiedResNet34(n_norm_groups, input_dims)
+        self.encoder = CustomCNN(input_dims)
         fc_input_dims = int(np.prod(self.encoder.encoder_output_dims))
         self.fc1 = nn.Linear(fc_input_dims, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -97,8 +99,8 @@ class ScaledActorNet(nn.Module):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        alpha = self.alpha_head(x) + 1.0
-        beta = self.beta_head(x) + 1.0
+        alpha = F.softplus(self.alpha_head(x)) + 1.0
+        beta = F.softplus(self.beta_head(x)) + 1.0
         self.temp_step += 1
         return alpha, beta
 
@@ -106,12 +108,12 @@ class ScaledActorNet(nn.Module):
         alpha, beta = self.forward(state)
         dist = Beta(alpha, beta)
         x_t = dist.rsample()
-        action = x_t * torch.tensor([2., 1., 1.], device=self.device) + torch.tensor([-1., 0., 0.], device=self.device)
+        action = x_t * torch.tensor([2., 1., 1.], device=self.device).repeat(x_t.shape[0], 1) + torch.tensor([-1., 0., 0.], device=self.device).repeat(x_t.shape[0], 1)
         log_prob = dist.log_prob(x_t)
         log_prob -= torch.log((1 - action.pow(2)) + self.epsilon)
         log_prob = log_prob.sum(1, keepdim=True)
         action_eval = alpha / (alpha + beta)
-        action_eval = action_eval * torch.tensor([2., 1., 1.], device=self.device) + torch.tensor([-1., 0., 0.], device=self.device)
+        action_eval = action_eval * torch.tensor([2., 1., 1.], device=self.device).repeat(x_t.shape[0], 1) + torch.tensor([-1., 0., 0.], device=self.device).repeat(x_t.shape[0], 1)
         return action, log_prob, action_eval
     
     def save_checkpoint(self, epoch):
